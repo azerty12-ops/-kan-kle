@@ -7,7 +7,7 @@ from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
 from src.services.odoo_service import odoo
 from src.services.job_service import job_service
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, TypeHandler, ApplicationHandlerStop
 
 # Load environment variables
 load_dotenv()
@@ -21,6 +21,21 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
+async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Security enhancement: Ensure only the allowed user can use the bot."""
+    allowed_id = os.getenv("ALLOWED_USER_ID")
+    if not allowed_id:
+        logger.error("SECURITY WARNING: ALLOWED_USER_ID is not set in .env. Bot is locked down.")
+        if update.message:
+            await update.message.reply_text("⛔ Configuration manquante (ALLOWED_USER_ID). Bot privé verrouillé.")
+        raise ApplicationHandlerStop
+
+    if update.effective_user and str(update.effective_user.id) != allowed_id:
+        logger.warning(f"Unauthorized access attempt by user: {update.effective_user.id}")
+        if update.message:
+            await update.message.reply_text("⛔ Accès refusé. Vous n'êtes pas autorisé à utiliser ce bot privé.")
+        raise ApplicationHandlerStop
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
@@ -145,6 +160,9 @@ def main() -> None:
         return
 
     application = Application.builder().token(TOKEN).build()
+
+    # Security check before any other handlers
+    application.add_handler(TypeHandler(Update, auth_check), group=-1)
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
