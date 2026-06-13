@@ -1,64 +1,46 @@
-import xmlrpc.client
 import os
-from dotenv import load_dotenv
+import csv
+from datetime import datetime
 
-load_dotenv()
-
-class OdooService:
+class ComptaService:
     def __init__(self):
-        self.url = os.getenv("ODOO_URL")
-        self.db = os.getenv("ODOO_DB")
-        self.username = os.getenv("ODOO_USERNAME")
-        self.password = os.getenv("ODOO_PASSWORD")
-        self.uid = None
-        self.models = None
+        self.data_file = "data/compta.csv"
+        os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
 
-    def connect(self):
-        """Connect to Odoo XML-RPC API"""
-        if not all([self.url, self.db, self.username, self.password]) or self.url == "https://votre-domaine.odoo.com":
-            return False, "Les identifiants Odoo ne sont pas configurés dans .env"
-
-        try:
-            common = xmlrpc.client.ServerProxy(f'{self.url}/xmlrpc/2/common')
-            self.uid = common.authenticate(self.db, self.username, self.password, {})
-
-            if self.uid:
-                self.models = xmlrpc.client.ServerProxy(f'{self.url}/xmlrpc/2/object')
-                return True, "Connexion à Odoo réussie"
-            else:
-                return False, "Échec de l'authentification Odoo"
-        except Exception as e:
-            return False, f"Erreur de connexion à Odoo: {e}"
+        # Initialize CSV if it doesn't exist
+        if not os.path.exists(self.data_file):
+            with open(self.data_file, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(["Date", "Motif", "Montant"])
 
     def get_recent_invoices(self, limit=5):
-        """Get recent invoices from Odoo"""
-        success, msg = self.connect()
-        if not success:
-            return msg
-
+        """Get recent expenses/invoices from local CSV"""
         try:
-            # Assuming 'account.move' is the invoice model in Odoo
-            invoice_ids = self.models.execute_kw(self.db, self.uid, self.password,
-                'account.move', 'search',
-                [[['move_type', '=', 'out_invoice']]],
-                {'limit': limit, 'order': 'invoice_date desc'})
+            with open(self.data_file, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                rows = list(reader)[1:] # Skip header
 
-            if not invoice_ids:
-                return "Aucune facture récente trouvée."
+            if not rows:
+                return "Aucune dépense enregistrée dans votre fichier comptable local."
 
-            invoices = self.models.execute_kw(self.db, self.uid, self.password,
-                'account.move', 'read',
-                [invoice_ids],
-                {'fields': ['name', 'partner_id', 'amount_total', 'state', 'invoice_date']})
-
-            result = "Vos dernières factures Odoo :\n"
-            for inv in invoices:
-                partner = inv.get('partner_id', [0, "Inconnu"])[1]
-                result += f"📄 {inv.get('name')} - {partner} : {inv.get('amount_total')}€ ({inv.get('state')})\n"
+            result = "Vos dernières opérations :\n"
+            for row in rows[-limit:]:
+                if len(row) >= 3:
+                    result += f"💶 {row[0]} - {row[1]} : {row[2]}\n"
 
             return result
-
         except Exception as e:
-            return f"Erreur lors de la récupération des factures: {e}"
+            return f"Erreur lors de la lecture des comptes: {e}"
 
-odoo = OdooService()
+    def add_expense(self, motif, montant):
+        """Add an expense to the local CSV"""
+        try:
+            with open(self.data_file, 'a', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow([datetime.now().strftime("%Y-%m-%d %H:%M"), motif, montant])
+            return f"Dépense enregistrée : {motif} pour {montant}"
+        except Exception as e:
+            return f"Erreur lors de l'enregistrement de la dépense: {e}"
+
+# We keep the variable name 'odoo' so we don't break main.py, but it's now a local service
+odoo = ComptaService()

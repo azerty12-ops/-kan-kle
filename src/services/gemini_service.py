@@ -13,7 +13,7 @@ class GeminiService:
         else:
             genai.configure(api_key=self.api_key)
             # Use gemini-pro for text tasks
-            self.model = genai.GenerativeModel('gemini-pro')
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
 
     def generate_response(self, prompt: str) -> str:
         """

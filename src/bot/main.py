@@ -56,14 +56,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     try:
         # Check if the user is asking to add an event
         if "ajouter" in text.lower() and ("rendez-vous" in text.lower() or "agenda" in text.lower() or "formation" in text.lower()):
-            prompt = f"Extrais les informations de cet événement (Titre et Date ISO) du texte suivant: '{text}'. Réponds uniquement avec le titre suivi d'un | et de la date (ex: Réunion de travail|2023-12-01T10:00:00Z). Si tu ne trouves pas de date, mets juste le titre."
+            prompt = f"L'utilisateur veut ajouter un événement à son agenda: '{text}'. Extrais le Titre de l'événement et la Date (format compréhensible comme 'Demain à 14h' ou 'Le 25 Juin'). Réponds STRICTEMENT sous ce format: Titre | Date. Exemple: Formation Python | Lundi 15 Mars à 10h."
             extraction = gemini.generate_response(prompt)
             parts = extraction.split('|')
-            if len(parts) == 2:
+            if len(parts) >= 2:
                 result = calendar.add_event(parts[0].strip(), parts[1].strip())
                 await update.message.reply_text(result)
             else:
-                await update.message.reply_text("Je n'ai pas pu comprendre la date. Veuillez réessayer.")
+                await update.message.reply_text(f"Désolé, je n'ai pas pu extraire la date correctement. Résultat IA: {extraction}")
+            return
+
+        # Check if user wants to add an expense
+        if "dépens" in text.lower() or "payé" in text.lower() or "acheté" in text.lower():
+            prompt = f"L'utilisateur vient d'indiquer une dépense: '{text}'. Extrais le Motif de l'achat et le Montant (avec la devise). Réponds STRICTEMENT sous ce format: Motif | Montant. Exemple: Restaurant O'Tacos | 15.50€."
+            extraction = gemini.generate_response(prompt)
+            parts = extraction.split('|')
+            if len(parts) >= 2:
+                result = odoo.add_expense(parts[0].strip(), parts[1].strip())
+                await update.message.reply_text(result)
+            else:
+                await update.message.reply_text("Je n'ai pas pu comprendre le montant ou le motif. Veuillez réessayer.")
             return
 
         # Check if user wants a cover letter
@@ -83,9 +95,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def fichiers_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Je commence le rangement de vos fichiers...")
+    source = file_manager.source_folder
+    await update.message.reply_text(f"Je vérifie le dossier : {source} ...")
     try:
         result = file_manager.organize_files()
+        if "0 fichiers déplacés" in result:
+            result += f"\n\nNote : Il n'y a aucun fichier dans le dossier {source} ou bien ce dossier n'existe pas sur votre ordinateur. Vérifiez la configuration de FOLDER_TO_ORGANIZE dans le fichier .env."
         await update.message.reply_text(result)
     except Exception as e:
         await update.message.reply_text(f"Erreur lors du rangement: {e}")

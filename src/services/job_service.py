@@ -1,75 +1,33 @@
-import re
+import urllib.parse
 import requests
 from bs4 import BeautifulSoup
-import urllib.parse
+from src.services.gemini_service import gemini
 
 class JobScraperService:
     def __init__(self):
-        # We use a generic search as an example
-        self.base_url = "https://www.jobs.lu/job-search"
+        pass
 
     def search_jobs(self, keyword="comptable", limit=3):
-        """
-        Scrape jobs.lu for a specific keyword.
-        Note: Website structures change, this is a basic example.
-        """
         try:
-            # Format the URL properly based on jobs.lu structure (might require adjustments based on actual site structure)
-            search_url = f"{self.base_url}?k={urllib.parse.quote(keyword)}"
+            # We use a Google Search query specifically targeted at Luxembourg job sites
+            query = f"{keyword} emploi luxembourg site:moovijob.com OR site:jobs.lu"
 
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
+            # Since we can't reliably scrape without getting 403 blocks from Cloudflare on jobs.lu,
+            # we prompt Gemini to act as a parser/formatter if we could pass it HTML,
+            # but since Gemini can't browse the web directly in this simple API setup,
+            # we will just provide direct Google search links to the user.
 
-            response = requests.get(search_url, headers=headers)
+            google_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
+            moovijob_url = f"https://www.moovijob.com/offres-emploi/jobs?q={urllib.parse.quote(keyword)}&l=luxembourg"
 
-            if response.status_code != 200:
-                return f"Erreur lors de la recherche sur jobs.lu (Status: {response.status_code})"
+            result = f"🔍 La recherche automatique directe sur Jobs.lu a été bloquée par leur sécurité anti-robot.\n\n"
+            result += f"Cependant, voici les liens directs pour chercher '{keyword}' au Luxembourg :\n"
+            result += f"1. 🔗 Moovijob : {moovijob_url}\n"
+            result += f"2. 🔗 Google Emplois : {google_url}\n\n"
 
-            soup = BeautifulSoup(response.content, 'html.parser')
+            result += "🤖 **Comment utiliser l'IA Gemini :**\n"
+            result += "Cliquez sur un de ces liens, trouvez une offre qui vous plaît, copiez la description du poste et collez-la moi ici en disant 'Rédige ma lettre de motivation pour ce poste : [Collez l'offre]'."
 
-            jobs = []
-            # Find job cards. This selector might need to be adjusted based on Jobs.lu's actual DOM.
-            # Assuming a generic article or div wrapper with 'job-item' class as fallback
-            job_cards = soup.find_all('article', class_=re.compile(r'job', re.I))
-            if not job_cards:
-                job_cards = soup.find_all('div', class_=re.compile(r'job(-| )?card', re.I))
-
-            for card in job_cards:
-                title_elem = card.find(['h2', 'h3'])
-                if not title_elem:
-                    continue
-
-                title = title_elem.text.strip()
-
-                link_elem = title_elem.find('a') if title_elem.name != 'a' else title_elem
-                if not link_elem and title_elem.parent.name == 'a':
-                    link_elem = title_elem.parent
-
-                link = link_elem['href'] if link_elem and link_elem.has_attr('href') else "#"
-                if link.startswith('/'):
-                    link = f"https://www.jobs.lu{link}"
-
-                company_elem = card.find(class_=re.compile(r'company|employer', re.I))
-                company = company_elem.text.strip() if company_elem else "Entreprise inconnue"
-
-                jobs.append({"title": title, "company": company, "link": link})
-                if len(jobs) >= limit:
-                    break
-
-            if not jobs:
-                # Fallback to general message since actual scraping requires a headless browser often
-                return f"Aucune offre trouvée directement, mais vous pouvez chercher '{keyword}' ici: {search_url}"
-
-
-            if not jobs:
-                return f"Aucune offre trouvée pour '{keyword}'."
-
-            result = f"🔍 Voici quelques offres pour '{keyword}' au Luxembourg :\n\n"
-            for i, job in enumerate(jobs[:limit]):
-                result += f"{i+1}. {job['title']} chez {job['company']}\n🔗 Lien: {job['link']}\n\n"
-
-            result += "Si une offre vous intéresse, envoyez-moi sa description et je vous rédigerai une lettre de motivation !"
             return result
 
         except Exception as e:
