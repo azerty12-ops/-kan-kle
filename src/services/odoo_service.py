@@ -1,6 +1,7 @@
 import os
 import csv
 from datetime import datetime
+from collections import deque
 
 class ComptaService:
     def __init__(self):
@@ -18,13 +19,15 @@ class ComptaService:
         try:
             with open(self.data_file, 'r', encoding='utf-8') as f:
                 reader = csv.reader(f)
-                rows = list(reader)[1:] # Skip header
+                next(reader, None) # Skip header
+                # Use deque to only keep the last 'limit' rows in memory, making memory usage O(limit) instead of O(N)
+                rows = list(deque(reader, maxlen=limit))
 
             if not rows:
                 return "Aucune dépense enregistrée dans votre fichier comptable local."
 
             result = "Vos dernières opérations :\n"
-            for row in rows[-limit:]:
+            for row in rows:
                 if len(row) >= 3:
                     result += f"💶 {row[0]} - {row[1]} : {row[2]}\n"
 
