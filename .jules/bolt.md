@@ -1,0 +1,3 @@
+## 2024-06-15 - Synchronous API calls in asyncio Event Loop
+**Learning:** The telegram bot uses an `asyncio` event loop. Performing synchronous I/O or network requests (like `genai.GenerativeModel('...').generate_content(...)`) directly within async handlers blocks the entire event loop, preventing the bot from responding to other users concurrently and leading to poor performance.
+**Action:** Always use the asynchronous versions of library methods (like `generate_content_async`) combined with `await` when working inside asynchronous handlers or when using an asyncio-based framework like `python-telegram-bot`.
