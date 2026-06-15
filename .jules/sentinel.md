@@ -1,0 +1,4 @@
+## 2024-05-24 - Missing Authorization on Telegram Bot
+**Vulnerability:** The Telegram bot lacked any form of authentication or authorization, meaning any Telegram user who found the bot could interact with it, potentially accessing private agenda, compta, or file data if they could send messages to the bot.
+**Learning:** Even if a bot token is secret, bot usernames can be discovered or guessed. A global `TypeHandler` middleware checking `update.effective_user.id` against an `ALLOWED_USER_ID` environment variable is an effective way to secure a personal bot.
+**Prevention:** Always implement an authorization check (like `ALLOWED_USER_ID`) as a global middleware (e.g., `TypeHandler(Update, ..., group=-1)` in `python-telegram-bot`) before any command handlers are processed to ensure only authorized users can interact with the bot.
