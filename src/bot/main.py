@@ -1,7 +1,7 @@
 import logging
 import os
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup
 from src.services.gemini_service import gemini
 from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
@@ -34,7 +34,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "💼 /emplois - Chercher des emplois au Luxembourg\n\n"
         "Comment puis-je vous aider aujourd'hui ?"
     )
-    await update.message.reply_text(welcome_message)
+
+    keyboard = [
+        ["/agenda", "/fichiers"],
+        ["/compta", "/emplois"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    await update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /help is issued."""
