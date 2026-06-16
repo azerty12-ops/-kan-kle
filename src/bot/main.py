@@ -1,7 +1,7 @@
 import logging
 import os
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup
 from src.services.gemini_service import gemini
 from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
@@ -22,6 +22,14 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
+def get_main_keyboard():
+    keyboard = [
+        ["/agenda", "/fichiers"],
+        ["/compta", "/emplois"],
+        ["/help"]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
@@ -34,7 +42,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "💼 /emplois - Chercher des emplois au Luxembourg\n\n"
         "Comment puis-je vous aider aujourd'hui ?"
     )
-    await update.message.reply_text(welcome_message)
+    await update.message.reply_text(welcome_message, reply_markup=get_main_keyboard())
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /help is issued."""
@@ -47,7 +55,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/compta - Gérer votre comptabilité\n"
         "/emplois - Recherche d'emploi\n"
     )
-    await update.message.reply_text(help_text)
+    await update.message.reply_text(help_text, reply_markup=get_main_keyboard())
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle normal messages."""
