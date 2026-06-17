@@ -1,17 +1,20 @@
 import logging
 import os
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, TypeHandler
+from telegram.ext.exceptions import ApplicationHandlerStop
+
 from src.services.gemini_service import gemini
 from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
 from src.services.odoo_service import odoo
 from src.services.job_service import job_service
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+ALLOWED_USER_ID = os.getenv("ALLOWED_USER_ID")
 
 # Enable logging
 logging.basicConfig(
@@ -30,11 +33,32 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Je peux vous aider avec :\n"
         "📅 /agenda - Gérer votre agenda et rappels\n"
         "📁 /fichiers - Classer et ranger vos documents\n"
-        "💶 /compta - Gérer votre comptabilité (Odoo, dépenses)\n"
+        "💶 /compta - Gérer votre comptabilité (dépenses)\n"
         "💼 /emplois - Chercher des emplois au Luxembourg\n\n"
         "Comment puis-je vous aider aujourd'hui ?"
     )
-    await update.message.reply_text(welcome_message)
+
+    reply_keyboard = [
+        ["/agenda", "/fichiers"],
+        ["/compta", "/emplois"]
+    ]
+
+    markup = ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True, one_time_keyboard=False)
+
+    await update.message.reply_text(welcome_message, reply_markup=markup)
+
+async def auth_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Authentication middleware to block unauthorized users."""
+    if not ALLOWED_USER_ID:
+        return # Skip auth if not configured
+
+    user_id = str(update.effective_user.id) if update.effective_user else None
+
+    if user_id != ALLOWED_USER_ID:
+        logger.warning(f"Unauthorized access attempt from user ID: {user_id}")
+        if update.message:
+            await update.message.reply_text("Désolé, vous n'êtes pas autorisé à utiliser ce bot.")
+        raise ApplicationHandlerStop()
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /help is issued."""
@@ -54,42 +78,49 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     text = update.message.text
 
     try:
-        # Check if the user is asking to add an event
-        if "ajouter" in text.lower() and ("rendez-vous" in text.lower() or "agenda" in text.lower() or "formation" in text.lower()):
-            prompt = f"L'utilisateur veut ajouter un événement à son agenda: '{text}'. Extrais le Titre de l'événement et la Date (format compréhensible comme 'Demain à 14h' ou 'Le 25 Juin'). Réponds STRICTEMENT sous ce format: Titre | Date. Exemple: Formation Python | Lundi 15 Mars à 10h."
-            extraction = gemini.generate_response(prompt)
-            parts = extraction.split('|')
-            if len(parts) >= 2:
-                result = calendar.add_event(parts[0].strip(), parts[1].strip())
-                await update.message.reply_text(result)
-            else:
-                await update.message.reply_text(f"Désolé, je n'ai pas pu extraire la date correctement. Résultat IA: {extraction}")
-            return
-
-        # Check if user wants to add an expense
-        if "dépens" in text.lower() or "payé" in text.lower() or "acheté" in text.lower():
-            prompt = f"L'utilisateur vient d'indiquer une dépense: '{text}'. Extrais le Motif de l'achat et le Montant (avec la devise). Réponds STRICTEMENT sous ce format: Motif | Montant. Exemple: Restaurant O'Tacos | 15.50€."
-            extraction = gemini.generate_response(prompt)
-            parts = extraction.split('|')
-            if len(parts) >= 2:
-                result = odoo.add_expense(parts[0].strip(), parts[1].strip())
-                await update.message.reply_text(result)
-            else:
-                await update.message.reply_text("Je n'ai pas pu comprendre le montant ou le motif. Veuillez réessayer.")
-            return
-
-        # Check if user wants a cover letter
-        if "lettre de motivation" in text.lower() or "postuler" in text.lower():
-            # Very basic check, assuming the user just pastes the job description
-            await update.message.reply_text("Je rédige votre lettre de motivation...")
-            response = gemini.generate_cover_letter(text, "Profil Polyvalent et Motivé") # In a real scenario, fetch CV summary
-            await update.message.reply_text(response)
-            return
-
-        # General conversational response
         await update.message.chat.send_action("typing")
-        response = gemini.generate_response(text)
-        await update.message.reply_text(response)
+
+        intent = await gemini.analyze_intent_async(text)
+
+        if intent == "AGENDA":
+            prompt = f"L'utilisateur parle de son agenda ou veut ajouter un événement: '{text}'. Si c'est pour ajouter, extrais le Titre et la Date et réponds STRICTEMENT sous ce format: Titre | Date. Sinon, réponds normalement."
+            extraction = await gemini.generate_response_async(prompt)
+            if '|' in extraction:
+                parts = extraction.split('|')
+                if len(parts) >= 2:
+                    result = calendar.add_event(parts[0].strip(), parts[1].strip())
+                    await update.message.reply_text(result)
+            else:
+                await update.message.reply_text(extraction)
+
+        elif intent == "COMPTA":
+            prompt = f"L'utilisateur parle de comptabilité ou veut ajouter une dépense: '{text}'. Si c'est pour ajouter, extrais le Motif de l'achat et le Montant (avec la devise) et réponds STRICTEMENT sous ce format: Motif | Montant. Sinon, réponds normalement."
+            extraction = await gemini.generate_response_async(prompt)
+            if '|' in extraction:
+                parts = extraction.split('|')
+                if len(parts) >= 2:
+                    result = odoo.add_expense(parts[0].strip(), parts[1].strip())
+                    await update.message.reply_text(result)
+            else:
+                await update.message.reply_text(extraction)
+
+        elif intent == "EMPLOI":
+            if "lettre de motivation" in text.lower() or "postuler" in text.lower():
+                await update.message.reply_text("Je rédige votre lettre de motivation...")
+                response = await gemini.generate_cover_letter_async(text, "Profil Polyvalent et Motivé")
+                await update.message.reply_text(response)
+            else:
+                response = await gemini.generate_response_async(text)
+                await update.message.reply_text(response)
+
+        elif intent == "FICHIERS":
+            await update.message.reply_text("Si vous souhaitez ranger vos fichiers, utilisez la commande /fichiers.")
+
+        else:
+            # General conversational response
+            response = await gemini.generate_response_async(text)
+            await update.message.reply_text(response)
+
     except Exception as e:
         await update.message.reply_text(f"Oups, une erreur est survenue: {e}")
 
@@ -145,6 +176,9 @@ def main() -> None:
         return
 
     application = Application.builder().token(TOKEN).build()
+
+    # Add auth middleware
+    application.add_handler(TypeHandler(Update, auth_middleware), group=-1)
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
