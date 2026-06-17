@@ -4,3 +4,4 @@ __pycache__/
 config/credentials.json
 config/token.json
 data/
+venv/
