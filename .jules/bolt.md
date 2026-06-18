@@ -1,0 +1,3 @@
+## 2025-06-18 - Prevent blocking asyncio event loop with synchronous Gemini calls
+**Learning:** Synchronous I/O operations (like `generate_content` from the Gemini API) block the `asyncio` event loop used by `python-telegram-bot`. This creates a significant performance bottleneck under load, as the bot cannot process concurrent user requests while waiting for the AI response.
+**Action:** Always use the asynchronous counterparts (like `generate_content_async`) for long-running network or I/O operations in an asynchronous Telegram bot to ensure the event loop remains non-blocking and capable of concurrent request handling.
