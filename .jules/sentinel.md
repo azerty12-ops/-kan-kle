@@ -1,0 +1,4 @@
+## 2024-06-19 - Missing Authentication on Private Telegram Bot
+**Vulnerability:** The Telegram bot lacked authentication, meaning anyone who found the bot's username could interact with it, add events to the user's local agenda, add expenses, and trigger local file organization.
+**Learning:** Even if a bot is intended for "personal" use and not heavily publicized, the Telegram platform allows anyone to send messages to it. Local system actions (file manipulation, reading/writing local CSV/JSON) require strict access controls.
+**Prevention:** Implement a global middleware (`TypeHandler` with `group=-1` in `python-telegram-bot`) to check `update.effective_user.id` against a configured `ALLOWED_USER_ID` environment variable, and use `raise ApplicationHandlerStop()` to block unauthorized access.
