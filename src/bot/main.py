@@ -1,7 +1,7 @@
 import logging
 import os
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup
 from src.services.gemini_service import gemini
 from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
@@ -27,14 +27,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     welcome_message = (
         f"Bonjour {user.first_name} ! Je suis votre assistant personnel.\n\n"
-        "Je peux vous aider avec :\n"
-        "📅 /agenda - Gérer votre agenda et rappels\n"
-        "📁 /fichiers - Classer et ranger vos documents\n"
-        "💶 /compta - Gérer votre comptabilité (Odoo, dépenses)\n"
-        "💼 /emplois - Chercher des emplois au Luxembourg\n\n"
+        "Je peux vous aider avec les options ci-dessous ou par message libre.\n\n"
         "Comment puis-je vous aider aujourd'hui ?"
     )
-    await update.message.reply_text(welcome_message)
+
+    keyboard = [
+        ["📅 Agenda", "📁 Fichiers"],
+        ["💶 Compta", "💼 Emplois"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    await update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /help is issued."""
@@ -157,6 +160,12 @@ def main() -> None:
 
     application.add_handler(CommandHandler("compta", compta_command))
     application.add_handler(CommandHandler("emplois", emplois_command))
+
+    # Add handler for exact button matches
+    application.add_handler(MessageHandler(filters.Regex("^📅 Agenda$"), agenda_command))
+    application.add_handler(MessageHandler(filters.Regex("^📁 Fichiers$"), fichiers_command))
+    application.add_handler(MessageHandler(filters.Regex("^💶 Compta$"), compta_command))
+    application.add_handler(MessageHandler(filters.Regex("^💼 Emplois$"), emplois_command))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
