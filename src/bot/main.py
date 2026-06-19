@@ -7,7 +7,7 @@ from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
 from src.services.odoo_service import odoo
 from src.services.job_service import job_service
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, TypeHandler, ApplicationHandlerStop
 
 # Load environment variables
 load_dotenv()
@@ -21,6 +21,20 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
+async def auth_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Middleware to check if the user is authorized."""
+    allowed_user_id = os.getenv("ALLOWED_USER_ID")
+
+    if not allowed_user_id:
+        logger.error("Veuillez configurer ALLOWED_USER_ID dans le fichier .env")
+        raise ApplicationHandlerStop()
+
+    if update.effective_user and str(update.effective_user.id) != allowed_user_id:
+        logger.warning(f"Accès non autorisé de l'utilisateur {update.effective_user.id}")
+        if update.message:
+            await update.message.reply_text("⛔ Vous n'êtes pas autorisé à utiliser ce bot.")
+        raise ApplicationHandlerStop()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
@@ -145,6 +159,9 @@ def main() -> None:
         return
 
     application = Application.builder().token(TOKEN).build()
+
+    # Security middleware: check user auth before processing any other handler
+    application.add_handler(TypeHandler(Update, auth_middleware), group=-1)
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
