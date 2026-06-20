@@ -15,22 +15,27 @@ class GeminiService:
             # Use gemini-pro for text tasks
             self.model = genai.GenerativeModel('gemini-1.5-flash')
 
-    def generate_response(self, prompt: str) -> str:
+    async def generate_response_async(self, prompt: str) -> str:
         """
-        Generate a simple text response to a prompt.
+        Generate a simple text response to a prompt asynchronously.
+
+        Performance Note:
+        Using `generate_content_async` (instead of synchronous `generate_content`) prevents
+        blocking the main Telegram bot event loop. This allows the bot to handle incoming
+        messages and requests from multiple users concurrently while waiting for the Gemini API.
         """
         if not self.api_key or self.api_key == "votre_cle_gemini_ici":
             return "Désolé, l'API Gemini n'est pas configurée. Veuillez ajouter votre clé dans le fichier .env."
 
         try:
-            response = self.model.generate_content(prompt)
+            response = await self.model.generate_content_async(prompt)
             return response.text
         except Exception as e:
             return f"Une erreur s'est produite lors de la communication avec l'IA: {str(e)}"
 
-    def generate_cover_letter(self, job_description: str, user_cv_summary: str) -> str:
+    async def generate_cover_letter_async(self, job_description: str, user_cv_summary: str) -> str:
         """
-        Generate a tailored cover letter for a job description based on the user's CV.
+        Generate a tailored cover letter for a job description based on the user's CV asynchronously.
         """
         prompt = f"""
         Tu es un assistant de recherche d'emploi expert.
@@ -43,11 +48,11 @@ class GeminiService:
         Résumé du candidat :
         {user_cv_summary}
         """
-        return self.generate_response(prompt)
+        return await self.generate_response_async(prompt)
 
-    def analyze_intent(self, user_message: str) -> str:
+    async def analyze_intent_async(self, user_message: str) -> str:
         """
-        Analyze user message to determine what module they want to interact with.
+        Analyze user message to determine what module they want to interact with asynchronously.
         """
         prompt = f"""
         Analyse ce message de l'utilisateur : "{user_message}"
@@ -59,7 +64,7 @@ class GeminiService:
         - EMPLOI (s'il cherche un travail, CV, lettre de motivation)
         - CHAT (pour toute autre conversation)
         """
-        response = self.generate_response(prompt)
+        response = await self.generate_response_async(prompt)
         return response.strip().upper()
 
 # Singleton instance
