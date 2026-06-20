@@ -17,3 +17,6 @@ google-auth-oauthlib>=1.2.0
 
 # Variables d'environnement
 python-dotenv>=1.0.0
+
+pytest
+pytest-asyncio
