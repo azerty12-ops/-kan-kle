@@ -7,11 +7,13 @@ from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
 from src.services.odoo_service import odoo
 from src.services.job_service import job_service
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, TypeHandler
+from telegram.ext.exceptions import ApplicationHandlerStop
 
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+ALLOWED_USER_ID = os.getenv("ALLOWED_USER_ID")
 
 # Enable logging
 logging.basicConfig(
@@ -21,6 +23,17 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
+async def auth_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Middleware to restrict bot access to the allowed user."""
+    if not ALLOWED_USER_ID:
+        logger.warning("ALLOWED_USER_ID is not set in .env. Bot is accessible to everyone!")
+        return
+
+    user_id = update.effective_user.id if update.effective_user else None
+    if user_id and str(user_id) != ALLOWED_USER_ID:
+        logger.warning(f"Unauthorized access attempt by user {user_id}")
+        raise ApplicationHandlerStop()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
@@ -145,6 +158,9 @@ def main() -> None:
         return
 
     application = Application.builder().token(TOKEN).build()
+
+    # global middleware to check if the user is authorized
+    application.add_handler(TypeHandler(Update, auth_middleware), group=-1)
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
