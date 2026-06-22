@@ -7,7 +7,7 @@ from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
 from src.services.odoo_service import odoo
 from src.services.job_service import job_service
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, TypeHandler, ApplicationHandlerStop
 
 # Load environment variables
 load_dotenv()
@@ -21,6 +21,24 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
+ALLOWED_USER_ID = os.getenv("ALLOWED_USER_ID")
+
+async def restrict_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Restrict bot access to the allowed user."""
+    if not ALLOWED_USER_ID:
+        logger.warning("ALLOWED_USER_ID is not set in .env. The bot is inaccessible.")
+        raise ApplicationHandlerStop()
+
+    try:
+        allowed_id = int(ALLOWED_USER_ID)
+    except ValueError:
+        logger.error("ALLOWED_USER_ID must be an integer.")
+        raise ApplicationHandlerStop()
+
+    if update.effective_user and update.effective_user.id != allowed_id:
+        logger.warning(f"Unauthorized access attempt by user ID {update.effective_user.id}")
+        raise ApplicationHandlerStop()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
@@ -145,6 +163,9 @@ def main() -> None:
         return
 
     application = Application.builder().token(TOKEN).build()
+
+    # Add authorization middleware to run before any other handler
+    application.add_handler(TypeHandler(Update, restrict_access), group=-1)
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
