@@ -1,0 +1,3 @@
+## 2024-05-17 - Asynchronous Gemini API Calls
+**Learning:** The telegram bot runs on an `asyncio` event loop. Using synchronous methods for I/O bound operations like the `google.generativeai` API calls (`model.generate_content`) blocks the main thread, resulting in performance bottlenecks (stalling the handling of concurrent requests).
+**Action:** Always use the asynchronous versions of network calls (`model.generate_content_async`) within `async def` methods and `await` them correctly to maintain a non-blocking architecture.
