@@ -1,7 +1,6 @@
 import urllib.parse
 import requests
 from bs4 import BeautifulSoup
-from src.services.gemini_service import gemini
 
 class JobScraperService:
     def __init__(self):
