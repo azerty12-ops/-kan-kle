@@ -1,0 +1,3 @@
+## 2024-06-23 - Interactive Keyboards for Core Commands
+**Learning:** Telegram's text-based command interface can create typing friction for frequently used core commands, reducing discoverability. Adding a `ReplyKeyboardMarkup` alongside message handlers using `filters.Regex` allows translating button presses into handler functions easily.
+**Action:** Use `ReplyKeyboardMarkup` paired with exact string matching via `MessageHandler(filters.Regex("^Button Text$"), handler)` to provide one-tap access to primary app features instead of making the user manually type commands. Ensure these handlers are registered before any catch-all text handler.
