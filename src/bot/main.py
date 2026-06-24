@@ -7,11 +7,12 @@ from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
 from src.services.odoo_service import odoo
 from src.services.job_service import job_service
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, TypeHandler, ApplicationHandlerStop
 
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+ALLOWED_USER_ID = os.getenv("ALLOWED_USER_ID")
 
 # Enable logging
 logging.basicConfig(
@@ -21,6 +22,16 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
+async def auth_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Security middleware to only allow the owner to use the bot."""
+    if update.effective_user:
+        user_id = str(update.effective_user.id)
+        if user_id != ALLOWED_USER_ID:
+            logger.warning(f"Unauthorized access attempt from user ID: {user_id}")
+            if update.message:
+                await update.message.reply_text("⛔ Accès non autorisé. Ce bot est privé.")
+            raise ApplicationHandlerStop()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
@@ -144,7 +155,14 @@ def main() -> None:
         logger.error("Veuillez configurer TELEGRAM_BOT_TOKEN dans le fichier .env")
         return
 
+    if not ALLOWED_USER_ID or ALLOWED_USER_ID == "votre_id_telegram":
+        logger.error("Veuillez configurer ALLOWED_USER_ID dans le fichier .env pour sécuriser le bot.")
+        return
+
     application = Application.builder().token(TOKEN).build()
+
+    # Security middleware (Group -1 to run before everything else)
+    application.add_handler(TypeHandler(Update, auth_middleware), group=-1)
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
