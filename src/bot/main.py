@@ -7,7 +7,7 @@ from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
 from src.services.odoo_service import odoo
 from src.services.job_service import job_service
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ApplicationHandlerStop, TypeHandler
 
 # Load environment variables
 load_dotenv()
@@ -21,6 +21,18 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
+async def auth_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Authentication middleware to restrict access to the allowed user."""
+    allowed_user_id = os.getenv("ALLOWED_USER_ID")
+    if not allowed_user_id:
+        logger.warning("ALLOWED_USER_ID non configuré. Le bot est public et vulnérable !")
+    else:
+        user = update.effective_user
+        if user and str(user.id) != allowed_user_id:
+            logger.warning(f"Unauthorized access attempt from user ID: {user.id} ({user.username})")
+            raise ApplicationHandlerStop()
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
@@ -145,6 +157,9 @@ def main() -> None:
         return
 
     application = Application.builder().token(TOKEN).build()
+
+    # Register the auth middleware first
+    application.add_handler(TypeHandler(Update, auth_middleware), group=-1)
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
