@@ -1,0 +1,3 @@
+## 2026-06-26 - Prevent Blocking the Asyncio Event Loop with Synchronous External API Calls
+**Learning:** Network calls to the Gemini API were previously synchronous (`self.model.generate_content`), which blocks the entire `asyncio` event loop in the `python-telegram-bot` framework, preventing concurrent user request handling.
+**Action:** When working in an `asyncio` context (like Telegram bots), all I/O or network-bound operations must use their asynchronous counterparts (e.g., `generate_content_async`) and must be correctly `await`ed in the handler chain to ensure non-blocking concurrent execution.
