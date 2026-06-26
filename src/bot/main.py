@@ -57,7 +57,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # Check if the user is asking to add an event
         if "ajouter" in text.lower() and ("rendez-vous" in text.lower() or "agenda" in text.lower() or "formation" in text.lower()):
             prompt = f"L'utilisateur veut ajouter un événement à son agenda: '{text}'. Extrais le Titre de l'événement et la Date (format compréhensible comme 'Demain à 14h' ou 'Le 25 Juin'). Réponds STRICTEMENT sous ce format: Titre | Date. Exemple: Formation Python | Lundi 15 Mars à 10h."
-            extraction = gemini.generate_response(prompt)
+            extraction = await gemini.generate_response(prompt)
             parts = extraction.split('|')
             if len(parts) >= 2:
                 result = calendar.add_event(parts[0].strip(), parts[1].strip())
@@ -69,7 +69,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # Check if user wants to add an expense
         if "dépens" in text.lower() or "payé" in text.lower() or "acheté" in text.lower():
             prompt = f"L'utilisateur vient d'indiquer une dépense: '{text}'. Extrais le Motif de l'achat et le Montant (avec la devise). Réponds STRICTEMENT sous ce format: Motif | Montant. Exemple: Restaurant O'Tacos | 15.50€."
-            extraction = gemini.generate_response(prompt)
+            extraction = await gemini.generate_response(prompt)
             parts = extraction.split('|')
             if len(parts) >= 2:
                 result = odoo.add_expense(parts[0].strip(), parts[1].strip())
@@ -82,13 +82,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if "lettre de motivation" in text.lower() or "postuler" in text.lower():
             # Very basic check, assuming the user just pastes the job description
             await update.message.reply_text("Je rédige votre lettre de motivation...")
-            response = gemini.generate_cover_letter(text, "Profil Polyvalent et Motivé") # In a real scenario, fetch CV summary
+            response = await gemini.generate_cover_letter(text, "Profil Polyvalent et Motivé") # In a real scenario, fetch CV summary
             await update.message.reply_text(response)
             return
 
         # General conversational response
         await update.message.chat.send_action("typing")
-        response = gemini.generate_response(text)
+        response = await gemini.generate_response(text)
         await update.message.reply_text(response)
     except Exception as e:
         await update.message.reply_text(f"Oups, une erreur est survenue: {e}")
