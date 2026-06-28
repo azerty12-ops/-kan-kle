@@ -1,0 +1,4 @@
+## 2024-05-24 - [CRITICAL] Missing Authentication on Telegram Bot
+**Vulnerability:** The Telegram bot accepted commands and processed messages from any user on Telegram, exposing personal functionalities like file management and calendar access.
+**Learning:** The `python-telegram-bot` framework does not enforce authentication by default. Developers must explicitly implement checks to restrict access to authorized users.
+**Prevention:** Always implement a global `TypeHandler` with `group=-1` to intercept and validate the `update.effective_user.id` against an `ALLOWED_USER_ID` environment variable before processing any commands or messages.
