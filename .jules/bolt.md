@@ -1,0 +1,3 @@
+## 2024-05-24 - Asynchronous API Calls in Event Loops
+**Learning:** In a `python-telegram-bot` application utilizing an `asyncio` event loop, making synchronous network or I/O calls (like `model.generate_content`) blocks the entire event loop. This prevents the bot from processing any other incoming updates or executing concurrent tasks until the synchronous call completes, severely degrading performance and responsiveness under load.
+**Action:** Always utilize asynchronous equivalents for long-running operations. For the `google.generativeai` package, use `await model.generate_content_async` inside `async def` functions, and ensure all callers `await` the results up the stack.
