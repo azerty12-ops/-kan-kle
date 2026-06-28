@@ -7,7 +7,7 @@ from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
 from src.services.odoo_service import odoo
 from src.services.job_service import job_service
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, TypeHandler, ApplicationHandlerStop
 
 # Load environment variables
 load_dotenv()
@@ -21,6 +21,32 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
+async def auth_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Authentication middleware to restrict bot access to the owner."""
+    allowed_id_str = os.getenv("ALLOWED_USER_ID")
+    if not allowed_id_str:
+        logger.warning("VULNERABILITY: ALLOWED_USER_ID is not set. Blocking access by default to ensure security.")
+        raise ApplicationHandlerStop()
+
+    try:
+        allowed_id = int(allowed_id_str)
+    except ValueError:
+        logger.error("ALLOWED_USER_ID must be a valid integer ID.")
+        raise ApplicationHandlerStop()
+
+    user = update.effective_user
+    if not user or user.id != allowed_id:
+        user_id = user.id if user else "Unknown"
+        logger.warning(f"Unauthorized access attempt blocked from user ID: {user_id}")
+        # Optionally send a message to the unauthorized user if possible
+        if update.effective_message:
+            try:
+                await update.effective_message.reply_text("⛔ Vous n'êtes pas autorisé à utiliser ce bot.")
+            except Exception:
+                pass
+        raise ApplicationHandlerStop()
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
@@ -145,6 +171,9 @@ def main() -> None:
         return
 
     application = Application.builder().token(TOKEN).build()
+
+    # Authentication middleware runs before all other handlers
+    application.add_handler(TypeHandler(Update, auth_middleware), group=-1)
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
