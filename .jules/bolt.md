@@ -1,0 +1,3 @@
+## 2024-05-18 - [Make Gemini API Calls Asynchronous]
+ **Learning:** [Synchronous API calls (e.g., using generate_content instead of generate_content_async) in an asyncio-based Telegram bot block the entire event loop, preventing the bot from processing other updates simultaneously.]
+ **Action:** [Ensure all long-running I/O or network operations, especially 3rd-party API calls, are defined as async def and awaited within the bot's handlers to maintain concurrency.]
