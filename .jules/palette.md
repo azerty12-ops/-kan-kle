@@ -1,0 +1,3 @@
+## 2024-05-18 - [Add Persistent Menu for Core Commands]
+ **Learning:** [Interactive elements like ReplyKeyboardMarkup reduce typing friction and improve discoverability for common bot actions compared to typing out slash commands.]
+ **Action:** [Use ReplyKeyboardMarkup from python-telegram-bot to present core commands as clickable buttons, and route them using MessageHandler with exact Regex matching.]
