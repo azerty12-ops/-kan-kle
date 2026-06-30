@@ -7,7 +7,7 @@ from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
 from src.services.odoo_service import odoo
 from src.services.job_service import job_service
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, TypeHandler, ApplicationHandlerStop
 
 # Load environment variables
 load_dotenv()
@@ -21,6 +21,24 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
+async def auth_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Middleware to restrict bot access to the allowed user."""
+    allowed_id_str = os.getenv("ALLOWED_USER_ID")
+    if not allowed_id_str:
+        logger.error("ALLOWED_USER_ID non configuré. Accès bloqué par sécurité.")
+        raise ApplicationHandlerStop()
+
+    try:
+        allowed_id = int(allowed_id_str)
+    except ValueError:
+        logger.error("ALLOWED_USER_ID est mal configuré (doit être un nombre). Accès bloqué par sécurité.")
+        raise ApplicationHandlerStop()
+
+    if update.effective_user and update.effective_user.id != allowed_id:
+        logger.warning(f"Accès non autorisé bloqué pour l'utilisateur ID: {update.effective_user.id}")
+        # Optionally send a message: await update.effective_message.reply_text("Accès non autorisé.")
+        raise ApplicationHandlerStop()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
@@ -145,6 +163,9 @@ def main() -> None:
         return
 
     application = Application.builder().token(TOKEN).build()
+
+    # global authentication middleware to restrict access
+    application.add_handler(TypeHandler(Update, auth_middleware), group=-1)
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
