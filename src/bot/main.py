@@ -7,7 +7,8 @@ from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
 from src.services.odoo_service import odoo
 from src.services.job_service import job_service
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram import ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, TypeHandler, ApplicationHandlerStop
 
 # Load environment variables
 load_dotenv()
@@ -22,19 +23,47 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
+async def check_user_allowed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Check if the user is allowed to use the bot."""
+    if update.effective_user is None:
+        return
+
+    user_id = update.effective_user.id
+    allowed_id_str = os.getenv("ALLOWED_USER_ID")
+
+    if not allowed_id_str:
+        logger.error("ALLOWED_USER_ID non configuré. Accès refusé.")
+        raise ApplicationHandlerStop()
+
+    try:
+        allowed_id = int(allowed_id_str)
+        if user_id != allowed_id:
+            logger.warning(f"Accès refusé à l'utilisateur: {user_id}")
+            raise ApplicationHandlerStop()
+    except ValueError:
+        logger.error("ALLOWED_USER_ID n'est pas un entier valide. Accès refusé.")
+        raise ApplicationHandlerStop()
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
+
+    keyboard = [
+        ['📅 Agenda', '📁 Fichiers'],
+        ['💶 Compta', '💼 Emplois']
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
     welcome_message = (
         f"Bonjour {user.first_name} ! Je suis votre assistant personnel.\n\n"
         "Je peux vous aider avec :\n"
-        "📅 /agenda - Gérer votre agenda et rappels\n"
-        "📁 /fichiers - Classer et ranger vos documents\n"
-        "💶 /compta - Gérer votre comptabilité (Odoo, dépenses)\n"
-        "💼 /emplois - Chercher des emplois au Luxembourg\n\n"
-        "Comment puis-je vous aider aujourd'hui ?"
+        "📅 Agenda - Gérer votre agenda et rappels\n"
+        "📁 Fichiers - Classer et ranger vos documents\n"
+        "💶 Compta - Gérer votre comptabilité (Odoo, dépenses)\n"
+        "💼 Emplois - Chercher des emplois au Luxembourg\n\n"
+        "Utilisez le menu ci-dessous ou écrivez-moi directement. Comment puis-je vous aider aujourd'hui ?"
     )
-    await update.message.reply_text(welcome_message)
+    await update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /help is issued."""
@@ -57,7 +86,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # Check if the user is asking to add an event
         if "ajouter" in text.lower() and ("rendez-vous" in text.lower() or "agenda" in text.lower() or "formation" in text.lower()):
             prompt = f"L'utilisateur veut ajouter un événement à son agenda: '{text}'. Extrais le Titre de l'événement et la Date (format compréhensible comme 'Demain à 14h' ou 'Le 25 Juin'). Réponds STRICTEMENT sous ce format: Titre | Date. Exemple: Formation Python | Lundi 15 Mars à 10h."
-            extraction = gemini.generate_response(prompt)
+            extraction = await gemini.generate_response(prompt)
             parts = extraction.split('|')
             if len(parts) >= 2:
                 result = calendar.add_event(parts[0].strip(), parts[1].strip())
@@ -69,7 +98,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # Check if user wants to add an expense
         if "dépens" in text.lower() or "payé" in text.lower() or "acheté" in text.lower():
             prompt = f"L'utilisateur vient d'indiquer une dépense: '{text}'. Extrais le Motif de l'achat et le Montant (avec la devise). Réponds STRICTEMENT sous ce format: Motif | Montant. Exemple: Restaurant O'Tacos | 15.50€."
-            extraction = gemini.generate_response(prompt)
+            extraction = await gemini.generate_response(prompt)
             parts = extraction.split('|')
             if len(parts) >= 2:
                 result = odoo.add_expense(parts[0].strip(), parts[1].strip())
@@ -82,13 +111,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if "lettre de motivation" in text.lower() or "postuler" in text.lower():
             # Very basic check, assuming the user just pastes the job description
             await update.message.reply_text("Je rédige votre lettre de motivation...")
-            response = gemini.generate_cover_letter(text, "Profil Polyvalent et Motivé") # In a real scenario, fetch CV summary
+            response = await gemini.generate_cover_letter(text, "Profil Polyvalent et Motivé") # In a real scenario, fetch CV summary
             await update.message.reply_text(response)
             return
 
         # General conversational response
         await update.message.chat.send_action("typing")
-        response = gemini.generate_response(text)
+        response = await gemini.generate_response(text)
         await update.message.reply_text(response)
     except Exception as e:
         await update.message.reply_text(f"Oups, une erreur est survenue: {e}")
@@ -146,6 +175,9 @@ def main() -> None:
 
     application = Application.builder().token(TOKEN).build()
 
+    # Security: check if user is allowed
+    application.add_handler(TypeHandler(Update, check_user_allowed), group=-1)
+
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
@@ -157,6 +189,12 @@ def main() -> None:
 
     application.add_handler(CommandHandler("compta", compta_command))
     application.add_handler(CommandHandler("emplois", emplois_command))
+
+    # Buttons from ReplyKeyboardMarkup
+    application.add_handler(MessageHandler(filters.Regex("^📅 Agenda$"), agenda_command))
+    application.add_handler(MessageHandler(filters.Regex("^📁 Fichiers$"), fichiers_command))
+    application.add_handler(MessageHandler(filters.Regex("^💶 Compta$"), compta_command))
+    application.add_handler(MessageHandler(filters.Regex("^💼 Emplois$"), emplois_command))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
