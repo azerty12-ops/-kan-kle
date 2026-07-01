@@ -7,7 +7,7 @@ from src.services.file_manager import file_manager
 from src.services.calendar_service import calendar
 from src.services.odoo_service import odoo
 from src.services.job_service import job_service
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, TypeHandler, ApplicationHandlerStop
 
 # Load environment variables
 load_dotenv()
@@ -137,6 +137,23 @@ async def emplois_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     except Exception as e:
         await update.message.reply_text(f"Erreur avec la recherche d'emploi: {e}")
 
+async def check_allowed_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Security middleware: Stop processing if user is not authorized."""
+    # Only allow the owner of the bot to interact with it
+    try:
+        allowed_id_str = os.getenv("ALLOWED_USER_ID")
+        if not allowed_id_str:
+            logger.error("Security config missing: ALLOWED_USER_ID is not set in .env")
+            raise ApplicationHandlerStop()
+        allowed_id = int(allowed_id_str)
+    except (TypeError, ValueError):
+        logger.error("Security config error: ALLOWED_USER_ID must be a valid integer")
+        raise ApplicationHandlerStop()
+
+    if not update.effective_user or update.effective_user.id != allowed_id:
+        logger.warning(f"Unauthorized access attempt from user ID: {update.effective_user.id if update.effective_user else 'Unknown'}")
+        raise ApplicationHandlerStop()
+
 def main() -> None:
     """Start the bot."""
     # Create the Application and pass it your bot's token.
@@ -145,6 +162,9 @@ def main() -> None:
         return
 
     application = Application.builder().token(TOKEN).build()
+
+    # Add security authentication middleware (group=-1 runs before everything else)
+    application.add_handler(TypeHandler(Update, check_allowed_user), group=-1)
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
