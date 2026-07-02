@@ -1,0 +1,4 @@
+## 2024-06-25 - [Add authentication middleware]
+**Vulnerability:** The Telegram bot lacked authentication, allowing any Telegram user to interact with the bot and access local features like agenda, files, and accounting.
+**Learning:** Telegram bots are inherently public unless restricted. Implementing a global middleware (using `TypeHandler(Update, auth_middleware, group=-1)`) provides defense in depth by intercepting all updates before they reach specific command or message handlers, making it harder to accidentally expose new endpoints. Raising `ApplicationHandlerStop()` securely halts processing without leaking error details to the user.
+**Prevention:** Always restrict access to personal assistant bots using an allowlist (e.g., `ALLOWED_USER_ID`) configured via environment variables. Ensure the authentication logic defaults to denying access if the configuration is missing or invalid.
