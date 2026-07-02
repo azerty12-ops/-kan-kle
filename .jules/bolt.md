@@ -1,0 +1,3 @@
+## 2024-03-24 - Async IO in Python Telegram Bots
+**Learning:** Performing synchronous network calls (like `gemini.generate_content()`) inside Telegram bot handlers blocks the entire `asyncio` event loop. This causes the bot to become unresponsive to all other users while waiting for the HTTP response.
+**Action:** Always use the asynchronous versions of network calls (e.g., `model.generate_content_async()`) and ensure the corresponding service methods are `async def` and awaited in the bot handlers.
