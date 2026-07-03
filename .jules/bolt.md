@@ -1,0 +1,3 @@
+## 2024-05-24 - Async API Calls in Event Loop
+**Learning:** The Telegram bot runs on an asyncio event loop. Using synchronous `genai.GenerativeModel.generate_content` calls blocks the entire event loop, preventing the bot from processing concurrent messages from users while waiting for the AI response.
+**Action:** Always use the asynchronous `await generate_content_async` for Gemini API calls, and ensure the service methods are `async def` and awaited in the `main.py` handlers.
