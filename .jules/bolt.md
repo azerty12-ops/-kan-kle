@@ -1,0 +1,3 @@
+## 2024-05-24 - Async IO in python-telegram-bot
+**Learning:** Calling synchronous blocking I/O (like `generate_content` from `google.generativeai`) inside a `python-telegram-bot` request handler blocks the main `asyncio` event loop. This leads to the bot freezing and not being able to handle other concurrent requests while waiting for the Gemini API response.
+**Action:** Always use the asynchronous equivalent methods (e.g., `generate_content_async`) inside async handlers (`async def`) and `await` them. This prevents blocking and significantly improves the concurrency handling of the bot.
