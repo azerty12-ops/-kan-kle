@@ -1,0 +1,3 @@
+## 2024-07-04 - Asynchronous Gemini API calls in Telegram Bot
+**Learning:** In a `python-telegram-bot` architecture using an `asyncio` event loop, executing synchronous network or I/O operations (like calling the Gemini API via `self.model.generate_content`) blocks the event loop. This prevents the bot from handling concurrent user requests effectively, severely impacting performance and responsiveness.
+**Action:** Always implement long-running operations (like API calls) as asynchronous functions (`async def`) and use the `await` keyword with their asynchronous equivalents (e.g., `await self.model.generate_content_async`) to ensure the event loop remains unblocked and can process other tasks concurrently.
