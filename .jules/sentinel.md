@@ -1,0 +1,4 @@
+## 2024-07-04 - [CRITICAL] Prevent unauthorized bot access via global middleware
+**Vulnerability:** The Telegram bot lacked access control, allowing anyone to interact with the personal assistant, potentially exposing sensitive files, agenda, and accounting data.
+**Learning:** In `python-telegram-bot`, commands and messages are handled by default for anyone unless specifically restricted. A global authentication check is necessary for private assistants.
+**Prevention:** Implement a global authentication middleware using `TypeHandler` registered with `group=-1` to intercept all updates. Check `update.effective_user.id` against an `ALLOWED_USER_ID` environment variable and raise `ApplicationHandlerStop()` to block unauthorized access while allowing bot status updates (by ignoring updates without `effective_user`).
