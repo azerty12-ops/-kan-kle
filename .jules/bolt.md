@@ -1,0 +1,3 @@
+## 2024-05-24 - Async IO in Python Telegram Bots
+**Learning:** The Python Telegram Bot relies on an `asyncio` event loop. Performing synchronous network operations (like the initial setup using `google.generativeai`'s `model.generate_content`) within bot handlers blocks the entire event loop. This prevents the bot from processing concurrent requests, making it slow and unresponsive under load.
+**Action:** Always use the asynchronous variants of APIs (e.g., `await model.generate_content_async`) inside bot handlers and wrap external API calls in `async def` to ensure non-blocking I/O and support concurrency.
