@@ -1,0 +1,3 @@
+## 2024-07-24 - Improve Discoverability of Core Commands
+**Learning:** For Telegram bots, typing full commands can create friction, especially on mobile devices. Custom keyboards (`ReplyKeyboardMarkup`) for primary actions significantly enhance UX by making core features visually discoverable and accessible with a single tap.
+**Action:** Always provide a visual UI mechanism (like custom keyboards or inline buttons) for the most frequently used commands in chat interfaces to bridge the gap between conversational UI and traditional graphical interfaces.
